@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServeSouth POS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#8B2635',
+                        secondary: '#A53860',
+                        light: '#fef5f8',
+                        dark: '#faf0e6'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Login Check -->
+    <script>
+        const isLoggedIn = sessionStorage.getItem('isLoggedIn');
+        if (isLoggedIn !== 'true') {
+            window.location.href = 'index.html';
+        }
+
+        function logout() {
+            sessionStorage.removeItem('isLoggedIn');
+            sessionStorage.removeItem('mobileNumber');
+            window.location.href = 'index.html';
+        }
+    </script>
+    <style>
+        :root { --primary: #8B2635; --secondary: #A53860; }
+        .modal { display: none; }
+        .modal.show { display: flex; }
+
+        /* ---------- Product cards ---------- */
+        .product-card {
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+            border: 1px solid #f1e4e8;
+            box-shadow: 0 2px 8px rgba(139,38,53,0.05);
+        }
+        .product-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(139,38,53,0.14); border-color: var(--primary, #8B2635); }
+        .product-card.out-of-stock { opacity: 0.55; filter: grayscale(0.5); }
+        .product-card.low-stock { border-color: #f59e0b; }
+        .product-card .card-media {
+            background: linear-gradient(160deg, #fdf1f4 0%, #fbe6ec 100%);
+            border-radius: 20px;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 10px;
+            overflow: hidden;
+        }
+        .product-card .card-media img { width: 100%; height: 100%; object-fit: contain; padding: 6px; box-sizing: border-box; }
+        .stock-pill {
+            display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 9999px;
+        }
+        .stock-pill.in-stock { background: #dcfce7; color: #15803d; }
+        .stock-pill.low-stock-pill { background: #fef3c7; color: #b45309; }
+        .stock-pill.out-stock-pill { background: #fee2e2; color: #b91c1c; }
+        .order-now-btn {
+            background: linear-gradient(135deg, var(--primary, #8B2635), var(--secondary, #A53860));
+            color: #fff; font-size: 12px; font-weight: 600; padding: 7px 0; border-radius: 9999px;
+            width: 100%; box-shadow: 0 4px 10px rgba(139,38,53,0.25); transition: opacity 0.15s ease, transform 0.1s ease;
+        }
+        .order-now-btn:hover { opacity: 0.92; }
+        .order-now-btn:active { transform: scale(0.97); }
+        .order-now-btn:disabled { background: #d1d5db; box-shadow: none; cursor: not-allowed; }
+
+        /* ---------- Category chips ---------- */
+        .category-chip {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 4px; padding: 8px 4px; border-radius: 14px; border: 1px solid #f1e4e8;
+            background: #fff; cursor: pointer; transition: all 0.15s ease; flex: 0 0 auto;
+            min-width: 68px;
+        }
+        .category-chip .cat-icon {
+            width: 38px; height: 38px; border-radius: 9999px; display: flex; align-items: center;
+            justify-content: center; background: var(--dark, #faf0e6); color: var(--primary, #8B2635);
+            font-size: 16px;
+        }
+        .category-chip span.cat-label { font-size: 11px; font-weight: 600; color: #6b7280; white-space: nowrap; }
+        .category-chip:hover { border-color: var(--primary, #8B2635); transform: translateY(-2px); }
+        .category-chip.active { background: var(--primary, #8B2635); border-color: var(--primary, #8B2635); }
+        .category-chip.active .cat-icon { background: rgba(255,255,255,0.2); color: #fff; }
+        .category-chip.active span.cat-label { color: #fff; }
+
+        /* ---------- Notification panel tabs (Alerts / Stock status) ---------- */
+        .notif-tab { font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 8px; color: #9ca3af; }
+        .notif-tab.active { background: var(--primary, #8B2635); color: #fff; }
+        .stock-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid #f3f4f6; }
+        .stock-row .name { font-size: 13px; color: #374151; font-weight: 500; }
+        .stock-row .qty { font-size: 11px; color: #9ca3af; }
+
+        /* ---------- Order panel ("My Order" look) ---------- */
+        .order-line { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; background: #fafafa; margin-bottom: 8px; }
+        .order-line img { width: 46px; height: 46px; border-radius: 9999px; object-fit: cover; }
+        .qty-stepper { display: flex; align-items: center; gap: 6px; }
+        .qty-stepper button { width: 22px; height: 22px; border-radius: 9999px; border: 1px solid #e5e7eb; background: #fff; font-size: 12px; color: #6b7280; }
+        .summary-row { display: flex; justify-content: space-between; font-size: 13px; color: #6b7280; padding: 3px 0; }
+        .summary-row.total { font-size: 16px; font-weight: 700; color: #111827; border-top: 1px dashed #e5e7eb; margin-top: 6px; padding-top: 10px; }
+        .confirm-order-btn {
+            background: linear-gradient(135deg, var(--primary, #8B2635), var(--secondary, #A53860));
+            box-shadow: 0 8px 20px rgba(139,38,53,0.28);
+        }
+
+        .receipt-print {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            width: 80mm;
+            max-width: 80mm;
+            padding: 10mm;
+            box-sizing: border-box;
+        }
+        @media print {
+            @page { size: 80mm auto; margin: 0; }
+            body * { visibility: hidden; }
+            #printArea, #printArea * { visibility: visible; }
+            #printArea { position: absolute; left: 0; top: 0; width: 80mm; font-size: 12px; margin: 0; padding: 10mm; }
+        }
+        .loader {
+            display: none;
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #8B2635;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 0.8s linear infinite;
+            margin: 10px auto;
+            position: relative;
+            z-index: 10;
+        }
+        .loader.show { display: block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .discount-badge {
+            position: absolute; top: 8px; right: 8px;
+            background: #ef4444; color: white; padding: 2px 8px;
+            border-radius: 12px; font-size: 10px; font-weight: bold; z-index: 2;
+        }
+        .stock-badge {
+            position: absolute; top: 8px; left: 8px;
+            padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 700; z-index: 2;
+        }
+        #customerDetails { transition: all 0.3s ease; }
+        #toggleCustomerDetails:hover { opacity: 0.8; }
+
+        /* ---------- Topbar dropdowns ---------- */
+        .dropdown-panel { display: none; }
+        .dropdown-panel.show { display: block; animation: fadeIn 0.15s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ---------- Notification bell badge ---------- */
+        #notifBadge { display: none; }
+        #notifBadge.show { display: flex; }
+        .notif-item.unread { background: #fef5f8; }
+
+        /* ---------- Brand lockup (logo + wordmark) ---------- */
+        .brand-mark {
+            border-radius: 9999px;
+            background: #ffffff;
+            border: 1px solid #f1e4e8;
+            box-shadow: 0 2px 6px rgba(139,38,53,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .brand-mark img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+        .brand-word { font-weight: 700; color: #1f2937; line-height: 1.1; }
+        .brand-sup { font-weight: 700; color: var(--primary, #8B2635); vertical-align: super; }
+
+        /* ---------- Responsive helpers ---------- */
+        .cat-scroll { scrollbar-width: thin; scrollbar-color: #e5c9d1 transparent; }
+        .cat-scroll::-webkit-scrollbar { height: 6px; }
+        .cat-scroll::-webkit-scrollbar-thumb { background: #e5c9d1; border-radius: 9999px; }
+
+        @media (max-width: 1024px) {
+            #productsGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (max-width: 640px) {
+            #productsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); height: 460px; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 overflow-x-hidden min-h-screen flex flex-col">
+
+    <!-- =========================================================
+         TOPBAR — Kunash logo (left, enlarged, circular + wordmark),
+         View Sheet + Notification bell + Profile/Logout dropdown
+         (right). Fully responsive.
+         ========================================================= -->
+    <nav class="bg-white shadow-sm border-b px-3 sm:px-4 md:px-6 py-[7px] sticky top-0 z-30">
+        <div class="flex items-center justify-between gap-2">
+            <!-- Left: Kunash circular logo + wordmark -->
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div class="brand-mark w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11">
+                    <img src="kunash_logo.png" alt="Kunash Media Solutions">
+                </div>
+                <div class="hidden sm:block leading-tight min-w-0">
+                    <p class="brand-word text-lg truncate">Kunash Media<span class="brand-sup text-[10px] ml-1">POS</span></p>
+                </div>
+            </div>
+
+            <!-- Right: View Sheet, Notifications, Profile -->
+            <div class="flex items-center gap-1.5 sm:gap-2 md:gap-3 shrink-0">
+
+                <!-- Button that opens either Google Sheet: Products, or Orders (payments) -->
+                <div class="relative">
+                    <button id="viewSheetBtn"
+                            class="flex items-center gap-1.5 sm:gap-2 bg-dark text-primary border border-primary/30 px-2.5 sm:px-3 py-2 rounded-lg text-xs sm:text-sm font-medium hover:bg-primary hover:text-white transition">
+                        <i class="fas fa-table"></i><span class="hidden md:inline">View Sheets</span>
+                        <i class="fas fa-chevron-down text-xs hidden md:inline"></i>
+                    </button>
+                    <div id="sheetMenuPanel" class="dropdown-panel absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border z-40 overflow-hidden">
+                        <button class="w-full flex items-center gap-2 px-4 py-3 text-sm text-gray-700 hover:bg-light" onclick="openSheetView('products')">
+                            <i class="fas fa-box text-primary"></i>
+                            <span>Product Sheet</span>
+                        </button>
+                        <button class="w-full flex items-center gap-2 px-4 py-3 text-sm text-gray-700 hover:bg-light border-t" onclick="openSheetView('orders')">
+                            <i class="fas fa-receipt text-primary"></i>
+                            <span>Orders &amp; Payments Sheet</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Notification bell -->
+                <div class="relative">
+                    <button id="notifBellBtn" class="relative text-gray-600 hover:text-primary text-lg sm:text-xl px-1.5 sm:px-2 py-1">
+                        <i class="fas fa-bell"></i>
+                        <span id="notifBadge" class="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold rounded-full w-5 h-5 items-center justify-center">0</span>
+                    </button>
+                    <div id="notifPanel" class="dropdown-panel absolute right-0 mt-2 w-[90vw] max-w-[320px] bg-white rounded-xl shadow-2xl border z-40 overflow-hidden">
+                        <div class="flex items-center justify-between px-4 py-3 border-b bg-light">
+                            <div class="flex gap-1">
+                                <button id="tabAlertsBtn" class="notif-tab active">Alerts</button>
+                                <button id="tabStockBtn" class="notif-tab">Stock Status</button>
+                            </div>
+                            <button id="clearNotifsBtn" class="text-xs text-primary hover:underline">Clear</button>
+                        </div>
+                        <div id="notifList" class="max-h-80 overflow-y-auto"></div>
+                        <div id="stockList" class="max-h-80 overflow-y-auto hidden"></div>
+                    </div>
+                </div>
+
+                <!-- Profile dropdown with Logout -->
+                <div class="relative">
+                    <button id="profileBtn" class="flex items-center gap-2 pl-1.5 sm:pl-2 pr-1 py-1 rounded-full hover:bg-gray-100 transition">
+                        <div class="w-8 h-8 sm:w-9 sm:h-9 bg-primary rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-white text-sm"></i>
+                        </div>
+                        <i class="fas fa-chevron-down text-gray-400 text-xs hidden sm:inline"></i>
+                    </button>
+                    <div id="profilePanel" class="dropdown-panel absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border z-40 overflow-hidden">
+                        <div class="px-4 py-3 border-b bg-light">
+                            <p class="font-semibold text-gray-800 text-sm">Cashier</p>
+                            <p id="profileMobile" class="text-xs text-gray-500 mt-0.5">—</p>
+                        </div>
+                        <button onclick="logout()" class="w-full flex items-center gap-2 px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition">
+                            <i class="fas fa-sign-out-alt"></i><span>Logout</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <div class="flex-1">
+        <div class="p-3 sm:p-4 md:p-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                <!-- Products Panel -->
+                <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-3 sm:p-5">
+                    <!-- Search box (replaces the old "Product Search" heading): icon + "Search"
+                         placeholder, full-width, responsive. Refresh button sits beside it. -->
+                    <div class="flex items-center gap-2 mb-4">
+                        <div class="relative flex-1">
+                            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                            <input type="text" id="productSearch" placeholder="Search" class="w-full p-3 pl-11 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm">
+                        </div>
+                        <button id="refreshProducts" class="bg-primary text-white px-3 py-3 rounded-xl hover:bg-secondary text-xs sm:text-sm shrink-0">
+                            <i class="fas fa-sync-alt sm:mr-1"></i><span class="hidden sm:inline">Refresh</span>
+                        </button>
+                    </div>
+
+                    <!-- Category chips row (icon + label), with "All", horizontally scrollable on small screens -->
+                    <div id="categoryRow" class="cat-scroll flex items-center gap-2.5 overflow-x-auto pb-3 mb-3 border-b border-dashed"></div>
+
+                    <div id="loadingProducts" class="text-center py-8" style="display:none;">
+                        <div class="loader show mx-auto"></div>
+                        <p class="text-gray-600 mt-4">Loading products...</p>
+                    </div>
+
+                    <div id="productsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 h-[520px] sm:h-[600px] overflow-y-auto pr-1"></div>
+                </div>
+
+                <!-- Cart Panel — styled as "My Order" -->
+                <div class="bg-white rounded-2xl shadow-sm p-4 sm:p-6 h-fit">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold">My Order</h2>
+                        <span id="itemCountPill" class="bg-light text-primary text-xs font-semibold px-3 py-1 rounded-full">0 items</span>
+                    </div>
+                    <div id="cartItems" class="mb-4 max-h-64 overflow-y-auto"></div>
+
+                    <!-- Optional Customer Details -->
+                    <div class="mb-3">
+                        <button type="button" id="toggleCustomerDetails" class="text-primary text-sm flex items-center">
+                            <i class="fas fa-user-plus mr-1"></i>
+                            Add Customer Details (Optional)
+                            <i class="fas fa-chevron-down ml-1 text-xs"></i>
+                        </button>
+                        <div id="customerDetails" class="mt-2 hidden">
+                            <input type="text" id="customerName" placeholder="Customer Name" class="w-full p-2.5 border rounded-xl mb-2 text-sm bg-gray-50">
+                            <input type="text" id="customerMobile" placeholder="Mobile" class="w-full p-2.5 border rounded-xl text-sm bg-gray-50">
+                        </div>
+                    </div>
+
+                    <!-- Table Number -->
+                    <div class="mb-3">
+                        <input type="text" id="tableNumber" placeholder="Table (Optional)" class="w-full p-2.5 border rounded-xl text-sm bg-gray-50">
+                    </div>
+
+                    <!-- Discount -->
+                    <div class="mb-4">
+                        <label class="text-[11px] text-gray-400 font-semibold tracking-wide">DISCOUNT</label>
+                        <div class="flex gap-2 mt-1">
+                            <div class="flex-1 flex items-center bg-gray-50 border rounded-xl px-3">
+                                <i class="fas fa-tag text-gray-400 text-xs mr-2"></i>
+                                <input type="number" id="discount" placeholder="0" min="0" class="w-full py-2.5 bg-transparent text-sm focus:outline-none" value="0">
+                            </div>
+                            <select id="discountType" class="w-20 p-2.5 border rounded-xl text-sm bg-gray-50">
+                                <option value="percent">%</option>
+                                <option value="fixed">Rs</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Payment Method -->
+                    <div class="mb-5">
+                        <h3 class="font-semibold mb-2 text-sm">Payment Method</h3>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button class="payment-method active bg-primary text-white p-2.5 rounded-xl text-sm" data-method="cash">
+                                <i class="fas fa-money-bill-wave"></i>
+                                <span class="text-xs block">Cash</span>
+                            </button>
+                            <button class="payment-method bg-gray-100 text-gray-600 p-2.5 rounded-xl text-sm" data-method="upi">
+                                <i class="fas fa-qrcode"></i>
+                                <span class="text-xs block">UPI</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Itemised total block -->
+                    <div class="border-t border-dashed pt-4 mb-5 space-y-1.5">
+                        <div class="summary-row">
+                            <span>Items</span>
+                            <span id="itemCount">0</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span id="subtotal">₹0.00</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Discount</span>
+                            <span id="discountAmount" class="text-green-600 font-medium">-₹0.00</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total</span>
+                            <span id="total" class="text-primary">₹0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="space-y-3">
+                        <button id="processPayment" class="confirm-order-btn w-full text-white p-3.5 rounded-full font-semibold disabled:bg-gray-300 disabled:shadow-none text-sm" disabled>
+                            <i class="fas fa-credit-card mr-2"></i>Process Payment
+                        </button>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="clearCart" class="bg-white border border-red-200 text-red-600 p-2.5 rounded-xl text-sm font-medium hover:bg-red-50">
+                                <i class="fas fa-trash mr-1"></i>Clear
+                            </button>
+                            <button id="printReceipt" class="bg-white border border-gray-200 text-gray-600 p-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">
+                                <i class="fas fa-print mr-1"></i>Receipt
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer copyright -->
+    <footer class="text-center text-xs text-gray-400 py-4 border-t bg-white">
+        &copy; <span id="copyrightYear"></span> Kunash Media Solutions. All rights reserved.
+    </footer>
+
+    <!-- =========================================================
+         MODALS
+         ========================================================= -->
+
+    <!-- Cash processing modal -->
+    <div id="paymentModal" class="fixed inset-0 bg-black bg-opacity-50 modal items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <div class="text-center">
+                <i class="fas fa-spinner fa-spin text-4xl text-primary mb-4"></i>
+                <h3 class="text-xl font-semibold mb-2">Processing Payment</h3>
+                <p class="text-gray-600 mb-4">Please wait...</p>
+                <div class="bg-gray-200 rounded-full h-2">
+                    <div id="progressBar" class="bg-primary h-2 rounded-full" style="width:0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UPI QR modal -->
+    <div id="upiModal" class="fixed inset-0 bg-black bg-opacity-50 modal items-center justify-center z-50">
+        <div class="bg-white rounded-xl p-6 max-w-sm w-full mx-4 text-center">
+            <h3 class="text-lg font-semibold mb-1">Scan &amp; Pay with UPI</h3>
+            <p class="text-sm text-gray-500 mb-4">Ask the customer to scan this QR in any UPI app</p>
+            <div class="flex justify-center mb-4">
+                <img id="upiQrImg" src="" alt="UPI QR Code" class="w-56 h-56 border rounded-lg p-2">
+            </div>
+            <p class="text-2xl font-bold text-primary mb-1">₹<span id="upiAmount">0.00</span></p>
+            <p id="upiIdText" class="text-xs text-gray-500 mb-5">—</p>
+            <div class="flex gap-2">
+                <button id="upiCancelBtn" class="flex-1 bg-gray-200 text-gray-700 p-3 rounded-lg text-sm font-medium">
+                    Cancel
+                </button>
+                <button id="upiDoneBtn" class="flex-1 bg-green-700 text-white p-3 rounded-lg text-sm font-semibold">
+                    <i class="fas fa-check mr-1"></i>Payment Done
+                </button>
+            </div>
+            <p class="text-[11px] text-gray-400 mt-3">Click "Payment Done" only after the customer confirms the payment succeeded.</p>
+        </div>
+    </div>
+
+    <div id="receiptModal" class="fixed inset-0 bg-black bg-opacity-50 modal items-center justify-center z-50">
+        <div class="bg-white overflow-y-auto h-[520px] rounded-lg p-6 max-w-md w-full mx-4 flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold">Receipt</h3>
+                <button id="closeReceipt" class="text-gray-500">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="receiptContent" class="receipt-print text-sm border p-4 mb-4"></div>
+            <div class="flex space-x-2">
+                <button id="printReceiptBtn" class="flex-1 bg-primary text-white p-2 rounded-lg">
+                    <i class="fas fa-print mr-1"></i>Print
+                </button>
+                <button id="submitReceiptBtn" class="flex-1 bg-green-700 text-white p-2 rounded-lg">
+                    <i class="fas fa-check mr-1"></i>Done
+                </button>
+            </div>
+            <div id="submitLoader" class="loader mt-4"></div>
+        </div>
+    </div>
+
+    <!-- Raw sheet-data fallback modal -->
+    <div id="sheetDataModal" class="fixed inset-0 bg-black bg-opacity-50 modal items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center mb-3">
+                <h3 id="sheetDataTitle" class="text-lg font-semibold">Product Sheet Data</h3>
+                <button id="closeSheetData" class="text-gray-500"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="overflow-auto border rounded-lg">
+                <table class="w-full text-xs text-left">
+                    <thead class="bg-gray-100 sticky top-0">
+                        <tr id="sheetDataHead">
+                            <th class="p-2">ID</th><th class="p-2">Name</th><th class="p-2">Price</th>
+                            <th class="p-2">Category</th><th class="p-2">SKU</th><th class="p-2">Stock</th><th class="p-2">Discount</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sheetDataBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="printArea" style="display:none;"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script>
+        // =========================================================
+        // CONFIG — fill these in for your deployment
+        // =========================================================
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJf02XDJ3Fd0sXNZgBNj4O5N-Pfyhpu8IIhBGrq_yDUT8Fbu767-uV0NKw/exec';        const ORDER_SUBMISSION_URL = 'https://script.google.com/macros/s/AKfycbyul6UkH5uehnc-hjATTk8Hg_T6c6Xo75bUKYczonF8Ie-yNooeH5BBlfWJBD4v9SBSlw/exec';
+
+        const CONFIG = {
+            // Put your Google Sheets' normal share/edit URLs here (not the Apps Script exec URLs).
+            // e.g. 'https://docs.google.com/spreadsheets/d/XXXXXXXXXXXXXXXXXXXX/edit'
+            PRODUCT_SHEET_URL: '',
+            ORDERS_SHEET_URL: '',
+
+            // Your real UPI ID and display name (used to build the QR payment link)
+            UPI_ID: 'yourstore@upi',
+            MERCHANT_NAME: 'ServeSouth',
+
+            // Stock thresholds
+            LOW_STOCK_THRESHOLD: 5,
+            DEFAULT_STOCK: 50
+        };
+
+        // Icons used for the category chip row (falls back to fa-utensils for unknown categories)
+        const CATEGORY_ICONS = {
+            'ALL': 'fa-border-all',
+            'BURGER': 'fa-burger',
+            'PIZZA': 'fa-pizza-slice',
+            'DONUT': 'fa-cookie',
+            'DONUTS': 'fa-cookie',
+            'ICE CREAM': 'fa-ice-cream',
+            'ICE': 'fa-ice-cream',
+            'POTATO': 'fa-carrot',
+            'HOT DOG': 'fa-hotdog',
+            'HOTDOG': 'fa-hotdog',
+            'CHICKEN': 'fa-drumstick-bite',
+            'DRINK': 'fa-mug-saucer',
+            'DRINKS': 'fa-mug-saucer',
+            'BEVERAGE': 'fa-mug-saucer',
+            'BEVERAGES': 'fa-mug-saucer',
+            'DESSERT': 'fa-ice-cream',
+            'TIFFIN': 'fa-bowl-rice',
+            'OTHER': 'fa-utensils'
+        };
+
+        document.getElementById('copyrightYear').textContent = new Date().getFullYear();
+
+        // Show cashier's mobile number in the profile dropdown
+        document.getElementById('profileMobile').textContent = sessionStorage.getItem('mobileNumber') || 'Admin';
+
+        // Global Variables
+        let bakeryProducts = [];
+        let cart = [];
+        let currentPaymentMethod = 'cash';
+        let discountType = 'percent';
+        let tempCart = [];
+        let tempSubtotal = 0;
+        let tempDiscountAmount = 0;
+        let tempDiscountType = 'percent';
+        let tempCustomerName = '';
+        let tempCustomerMobile = '';
+        let activeCategory = 'ALL';
+
+        // ===== CURRENCY HELPER (perfect, consistent rounding) =====
+        function round2(n) { return Math.round((n + Number.EPSILON) * 100) / 100; }
+        function fmt(n) { return `₹${round2(n).toFixed(2)}`; }
+
+        // ===== TOAST NOTIFICATION =====
+        function showToast(message, type = 'info') {
+            const colors = {
+                success: '#059669',
+                error: '#dc2626',
+                info: '#3b82f6',
+                warning: '#f59e0b'
+            };
+
+            Toastify({
+                text: message,
+                duration: 3000,
+                gravity: 'top',
+                position: 'right',
+                backgroundColor: colors[type] || colors.info,
+                stopOnFocus: true
+            }).showToast();
+        }
+
+        // =========================================================
+        // NOTIFICATION CENTER (stock alerts + order events)
+        // =========================================================
+        const NOTIF_KEY = 'posNotifications';
+        let notifications = JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]');
+
+        function saveNotifications() {
+            localStorage.setItem(NOTIF_KEY, JSON.stringify(notifications.slice(0, 50)));
+        }
+
+        function addNotification(type, message) {
+            notifications.unshift({
+                id: Date.now() + Math.random(),
+                type, // 'low-stock' | 'out-of-stock' | 'order' | 'info'
+                message,
+                time: new Date().toLocaleString(),
+                read: false
+            });
+            saveNotifications();
+            renderNotifications();
+        }
+
+        function renderNotifications() {
+            const list = document.getElementById('notifList');
+            const badge = document.getElementById('notifBadge');
+            const unread = notifications.filter(n => !n.read).length;
+
+            if (unread > 0) {
+                badge.textContent = unread > 9 ? '9+' : unread;
+                badge.classList.add('show');
+            } else {
+                badge.classList.remove('show');
+            }
+
+            if (notifications.length === 0) {
+                list.innerHTML = `<div class="p-6 text-center text-sm text-gray-400">No notifications yet</div>`;
+                return;
+            }
+
+            const icons = {
+                'low-stock': '<i class="fas fa-triangle-exclamation text-amber-500"></i>',
+                'out-of-stock': '<i class="fas fa-ban text-red-600"></i>',
+                'order': '<i class="fas fa-receipt text-green-600"></i>',
+                'info': '<i class="fas fa-circle-info text-blue-500"></i>'
+            };
+
+            list.innerHTML = notifications.map(n => `
+                <div class="notif-item ${n.read ? '' : 'unread'} px-4 py-3 border-b flex gap-3 items-start">
+                    <div class="mt-0.5">${icons[n.type] || icons.info}</div>
+                    <div class="min-w-0">
+                        <p class="text-sm text-gray-800">${n.message}</p>
+                        <p class="text-[11px] text-gray-400 mt-0.5">${n.time}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function markAllNotificationsRead() {
+            notifications.forEach(n => n.read = true);
+            saveNotifications();
+            renderNotifications();
+        }
+
+        // Live, product-wise stock list so you can see at a glance which items are
+        // In Stock / Low Stock / Out of Stock at any time.
+        function renderStockStatus() {
+            const stockList = document.getElementById('stockList');
+            if (!stockList) return;
+
+            if (!bakeryProducts || bakeryProducts.length === 0) {
+                stockList.innerHTML = `<div class="p-6 text-center text-sm text-gray-400">No products loaded yet</div>`;
+                return;
+            }
+
+            const sorted = [...bakeryProducts].sort((a, b) => (a.stock ?? 0) - (b.stock ?? 0));
+            stockList.innerHTML = sorted.map(p => {
+                const stock = p.stock ?? CONFIG.DEFAULT_STOCK;
+                const isOut = stock <= 0;
+                const isLow = !isOut && stock <= CONFIG.LOW_STOCK_THRESHOLD;
+                const pillClass = isOut ? 'out-stock-pill' : (isLow ? 'low-stock-pill' : 'in-stock');
+                const label = isOut ? 'Out of Stock' : (isLow ? 'Low Stock' : 'In Stock');
+                return `
+                    <div class="stock-row">
+                        <div class="min-w-0">
+                            <p class="name truncate">${p.name}</p>
+                            <p class="qty">${p.sku} &middot; ${stock} in hand</p>
+                        </div>
+                        <span class="stock-pill ${pillClass}">${label}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ===== CACHE MANAGEMENT (products) =====
+        const CACHE_KEY = 'bakeryProductsCache';
+        const CACHE_TIME_KEY = 'bakeryProductsCacheTime';
+        const CACHE_DURATION = 3600000;
+
+        // Stock is tracked locally (and best-effort pushed to the sheet) because the
+        // current Products sheet has no "stock" column yet.
+        const STOCK_KEY = 'posStockOverrides'; // { sku: currentStock }
+        let stockOverrides = JSON.parse(localStorage.getItem(STOCK_KEY) || '{}');
+
+        function saveStockOverrides() {
+            localStorage.setItem(STOCK_KEY, JSON.stringify(stockOverrides));
+        }
+
+        function saveToCache(products) {
+            try {
+                localStorage.setItem(CACHE_KEY, JSON.stringify(products));
+                localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+            } catch (e) {
+                console.warn('Failed to save to cache:', e);
+            }
+        }
+
+        function loadFromCache() {
+            try {
+                const cachedData = localStorage.getItem(CACHE_KEY);
+                const cacheTime = localStorage.getItem(CACHE_TIME_KEY);
+
+                if (!cachedData || !cacheTime) return null;
+
+                const age = Date.now() - parseInt(cacheTime);
+                if (age > CACHE_DURATION) {
+                    localStorage.removeItem(CACHE_KEY);
+                    localStorage.removeItem(CACHE_TIME_KEY);
+                    return null;
+                }
+
+                return JSON.parse(cachedData);
+            } catch (e) {
+                console.warn('Failed to load from cache:', e);
+                return null;
+            }
+        }
+
+        // FIX: always resolve from the local override FIRST — that's the running
+        // "source of truth" once a sale has happened in this browser. Falls back to
+        // whatever the sheet/cache says, then to the default. Previously a missing
+        // check (=== undefined only, and re-parsing skipped on some paths) let a
+        // stale sheet value silently overwrite a fresher local override.
+        function resolveStock(product) {
+            if (stockOverrides[product.sku] !== undefined && stockOverrides[product.sku] !== null) {
+                return parseInt(stockOverrides[product.sku]);
+            }
+            if (product.stock !== undefined && product.stock !== null && !isNaN(product.stock)) return parseInt(product.stock);
+            return CONFIG.DEFAULT_STOCK;
+        }
+
+        // ===== PRODUCT LOADING =====
+        async function loadProductsFromSheets() {
+            const loadingProducts = document.getElementById('loadingProducts');
+            const productsGrid = document.getElementById('productsGrid');
+
+            if (loadingProducts) loadingProducts.style.display = 'block';
+            if (productsGrid) productsGrid.innerHTML = '';
+
+            // Try cache first
+            const cachedProducts = loadFromCache();
+            if (cachedProducts && cachedProducts.length > 0) {
+                bakeryProducts = cachedProducts.map(p => ({ ...p, stock: resolveStock(p) }));
+                renderCategories();
+                filterProducts();
+                if (loadingProducts) loadingProducts.style.display = 'none';
+                showToast(`${bakeryProducts.length} products loaded from cache`, 'info');
+                renderStockStatus();
+                setTimeout(refreshProductsInBackground, 1000);
+                return;
+            }
+
+            // Load from Google Sheets
+            try {
+                const callbackName = 'handleProducts_' + Date.now();
+                const url = `${GOOGLE_SHEETS_URL}?callback=${callbackName}&t=${Date.now()}`;
+
+                const data = await new Promise((resolve, reject) => {
+                    const timeoutId = setTimeout(() => {
+                        cleanup();
+                        reject(new Error('Timeout loading products'));
+                    }, 15000);
+
+                    function cleanup() {
+                        clearTimeout(timeoutId);
+                        if (window[callbackName]) delete window[callbackName];
+                        const script = document.getElementById(callbackName);
+                        if (script) script.remove();
+                    }
+
+                    window[callbackName] = function(response) {
+                        cleanup();
+                        resolve(response);
+                    };
+
+                    const script = document.createElement('script');
+                    script.src = url;
+                    script.id = callbackName;
+                    script.onerror = function() {
+                        cleanup();
+                        reject(new Error('Failed to load products'));
+                    };
+
+                    document.head.appendChild(script);
+                });
+
+                if (data && data.success && Array.isArray(data.products) && data.products.length > 0) {
+                    bakeryProducts = data.products.map((product, index) => {
+                        const base = {
+                            id: product.id || index + 1,
+                            name: product.name || 'Unnamed Product',
+                            price: parseFloat(product.price) || 0,
+                            category: product.category || 'OTHER',
+                            sku: product.sku || 'N/A',
+                            image: product.image || '🍰',
+                            discount: parseFloat(product.discount) || 0,
+                            stock: product.stock !== undefined ? parseInt(product.stock) : undefined
+                        };
+                        base.stock = resolveStock(base);
+                        return base;
+                    });
+
+                    saveToCache(bakeryProducts);
+                    renderCategories();
+                    filterProducts();
+                    showToast(`${bakeryProducts.length} products loaded!`, 'success');
+                    renderStockStatus();
+                } else {
+                    throw new Error('No products in response');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                if (loadingProducts) loadingProducts.style.display = 'none';
+                if (productsGrid) {
+                    productsGrid.innerHTML = `
+                        <div class="col-span-full text-center py-8">
+                            <i class="fas fa-exclamation-triangle text-5xl text-red-500 mb-4"></i>
+                            <h3 class="text-xl font-bold text-gray-800 mb-2">Failed to Load Products</h3>
+                            <p class="text-gray-600 mb-4">${error.message}</p>
+                            <button onclick="loadProductsFromSheets()" class="mt-4 bg-primary text-white px-6 py-2 rounded-lg hover:bg-secondary">
+                                <i class="fas fa-redo mr-2"></i>Retry
+                            </button>
+                        </div>
+                    `;
+                }
+                showToast('Failed to load products', 'error');
+            } finally {
+                if (loadingProducts) loadingProducts.style.display = 'none';
+            }
+        }
+
+        // FIX: background refresh from the sheet used to overwrite the sale-based
+        // local stock overrides whenever it landed, and never re-rendered the grid,
+        // so cards could show wrong stock until a manual refresh. Now it re-applies
+        // resolveStock() (override-first) after merging AND re-renders everything
+        // that's currently on screen, so a background sync never "un-decrements"
+        // stock you just sold.
+        function refreshProductsInBackground() {
+            const callbackName = 'refresh_' + Date.now();
+
+            window[callbackName] = function(data) {
+                if (data && data.success && data.products) {
+                    const processed = data.products.map((p, i) => {
+                        const base = {
+                            id: p.id || i + 1,
+                            name: p.name || 'Unnamed',
+                            price: parseFloat(p.price) || 0,
+                            category: p.category || 'OTHER',
+                            sku: p.sku || 'N/A',
+                            image: p.image || '🍰',
+                            discount: parseFloat(p.discount) || 0,
+                            stock: p.stock !== undefined ? parseInt(p.stock) : undefined
+                        };
+                        base.stock = resolveStock(base); // override always wins
+                        return base;
+                    });
+                    saveToCache(processed);
+                    bakeryProducts = processed;
+                    renderCategories();
+                    filterProducts();
+                    renderStockStatus();
+                }
+                delete window[callbackName];
+                const script = document.getElementById(callbackName);
+                if (script) script.remove();
+            };
+
+            const script = document.createElement('script');
+            script.src = `${GOOGLE_SHEETS_URL}?callback=${callbackName}&t=${Date.now()}`;
+            script.id = callbackName;
+            script.onerror = () => {
+                delete window[callbackName];
+                script.remove();
+            };
+            document.head.appendChild(script);
+        }
+
+        // =========================================================
+        // CATEGORY CHIPS — "All" + one chip per distinct category
+        // =========================================================
+        function renderCategories() {
+            const row = document.getElementById('categoryRow');
+            if (!row) return;
+
+            const cats = ['ALL', ...new Set(bakeryProducts.map(p => (p.category || 'OTHER').toUpperCase()))];
+
+            row.innerHTML = cats.map(cat => {
+                const icon = CATEGORY_ICONS[cat] || 'fa-utensils';
+                const isActive = activeCategory === cat;
+                const label = cat === 'ALL' ? 'All' : cat.charAt(0) + cat.slice(1).toLowerCase();
+                return `
+                    <button type="button" class="category-chip ${isActive ? 'active' : ''}" data-cat="${cat}" onclick="selectCategory('${cat.replace(/'/g, "\\'")}')">
+                        <span class="cat-icon"><i class="fas ${icon}"></i></span>
+                        <span class="cat-label">${label}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectCategory(cat) {
+            activeCategory = cat;
+            document.querySelectorAll('.category-chip').forEach(chip => {
+                chip.classList.toggle('active', chip.dataset.cat === cat);
+            });
+            filterProducts();
+        }
+
+        // =========================================================
+        // DISPLAY PRODUCTS — cards (wishlist icon removed everywhere)
+        // stock badge + low-stock highlight / out-of-stock lock
+        // =========================================================
+        function displayProducts(productsToShow) {
+            const productsGrid = document.getElementById('productsGrid');
+            if (!productsGrid) return;
+
+            if (!productsToShow || productsToShow.length === 0) {
+                productsGrid.innerHTML = `
+                    <div class="col-span-full text-center py-8">
+                        <i class="fas fa-box-open text-4xl text-gray-400 mb-2"></i>
+                        <p class="text-gray-500">No products available</p>
+                    </div>
+                `;
+                return;
+            }
+
+            productsGrid.innerHTML = productsToShow.map(product => {
+                const finalPrice = product.discount > 0
+                    ? product.price * (1 - product.discount / 100)
+                    : product.price;
+
+                const originalPrice = product.discount > 0
+                    ? `<p class="text-xs text-gray-400 line-through text-center">${fmt(product.price)}</p>`
+                    : '';
+
+                const badge = product.discount > 0
+                    ? `<span class="discount-badge">${product.discount}% OFF</span>`
+                    : '';
+
+                const stock = product.stock ?? CONFIG.DEFAULT_STOCK;
+                const isOut = stock <= 0;
+                const isLow = !isOut && stock <= CONFIG.LOW_STOCK_THRESHOLD;
+                const stockPillClass = isOut ? 'out-stock-pill' : (isLow ? 'low-stock-pill' : 'in-stock');
+                const stockLabel = isOut ? 'Out of Stock' : (isLow ? `Only ${stock} left` : 'In Stock');
+                const cardStateClass = isOut ? 'out-of-stock' : (isLow ? 'low-stock' : '');
+
+                return `
+                    <div class="product-card bg-white p-3 rounded-2xl relative ${cardStateClass}">
+                        ${badge}
+                        <div class="card-media">
+                            <img src="${product.image}" alt="${product.name}" onerror="this.src='https://placehold.co/200x200?text=No+Image'">
+                        </div>
+                        <h3 class="font-semibold text-sm mb-0.5 text-center text-gray-800 truncate">${product.name}</h3>
+                        <div class="flex items-center justify-center gap-1.5">
+                            <p class="text-base font-bold text-primary text-center">${fmt(finalPrice)}</p>
+                            ${originalPrice}
+                        </div>
+                        <div class="flex items-center justify-center gap-1 mt-1 mb-2">
+                            <span class="bg-gray-100 text-gray-500 text-[10px] px-2 py-0.5 rounded-full">${product.category}</span>
+                            <span class="stock-pill ${stockPillClass}">${stockLabel}</span>
+                        </div>
+                        <button class="order-now-btn" ${isOut ? 'disabled' : ''} onclick="addToCart(${product.id})">
+                            ${isOut ? 'Unavailable' : '<i class="fas fa-plus mr-1"></i>Order Now'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ===== CART FUNCTIONS =====
+        function addToCart(productId) {
+            const product = bakeryProducts.find(p => p.id == productId);
+            if (!product) {
+                showToast('Product not found!', 'error');
+                return;
+            }
+
+            const stock = product.stock ?? CONFIG.DEFAULT_STOCK;
+            const existingItem = cart.find(item => item.id == productId);
+            const qtyInCart = existingItem ? existingItem.quantity : 0;
+
+            if (qtyInCart + 1 > stock) {
+                showToast(`Only ${stock} ${product.name} left in stock`, 'warning');
+                return;
+            }
+
+            const discountedPrice = product.discount > 0
+                ? product.price * (1 - product.discount / 100)
+                : product.price;
+
+            if (existingItem) {
+                existingItem.quantity += 1;
+                showToast(`${product.name} qty: ${existingItem.quantity}`, 'info');
+            } else {
+                cart.push({
+                    ...product,
+                    quantity: 1,
+                    finalPrice: discountedPrice,
+                    originalPrice: product.price
+                });
+                showToast(`${product.name} added`, 'success');
+            }
+
+            updateCartDisplay();
+            updateTotals();
+        }
+
+        function updateCartDisplay() {
+            const cartItems = document.getElementById('cartItems');
+            const processPaymentBtn = document.getElementById('processPayment');
+
+            if (!cartItems) return;
+
+            if (cart.length === 0) {
+                cartItems.innerHTML = `
+                    <div class="text-center text-gray-500 py-8">
+                        <i class="fas fa-shopping-cart text-4xl mb-2 opacity-50"></i>
+                        <p>Cart is empty</p>
+                    </div>
+                `;
+                if (processPaymentBtn) processPaymentBtn.disabled = true;
+                return;
+            }
+
+            cartItems.innerHTML = cart.map(item => {
+                const lineTotal = item.finalPrice * item.quantity;
+                const priceDisplay = item.discount > 0
+                    ? `<p class="text-xs text-gray-500">${fmt(item.finalPrice)} <span class="text-red-500">(${item.discount}% off)</span></p>`
+                    : `<p class="text-xs text-gray-500">${fmt(item.finalPrice)} each</p>`;
+
+                return `
+                    <div class="order-line">
+                        <img src="${item.image}" alt="${item.name}" onerror="this.src='https://placehold.co/100x100?text=No+Image'">
+                        <div class="min-w-0 flex-1">
+                            <p class="font-semibold text-sm truncate text-gray-800">${item.name}</p>
+                            ${priceDisplay}
+                        </div>
+                        <div class="qty-stepper">
+                            <button onclick="changeQuantity(${item.id}, -1)"><i class="fas fa-minus"></i></button>
+                            <span class="font-semibold text-sm min-w-[18px] text-center">${item.quantity}</span>
+                            <button onclick="changeQuantity(${item.id}, 1)"><i class="fas fa-plus"></i></button>
+                        </div>
+                        <div class="text-right ml-1">
+                            <p class="text-sm font-bold text-primary">${fmt(lineTotal)}</p>
+                            <button class="text-[11px] text-gray-400 hover:text-red-600" onclick="removeFromCart(${item.id})">
+                                <i class="fas fa-trash text-[10px] mr-0.5"></i>Remove
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (processPaymentBtn) processPaymentBtn.disabled = false;
+        }
+
+        function changeQuantity(productId, change) {
+            const item = cart.find(i => i.id == productId);
+            if (!item) return;
+
+            if (change > 0) {
+                const product = bakeryProducts.find(p => p.id == productId);
+                const stock = product ? (product.stock ?? CONFIG.DEFAULT_STOCK) : Infinity;
+                if (item.quantity + 1 > stock) {
+                    showToast(`Only ${stock} in stock`, 'warning');
+                    return;
+                }
+            }
+
+            item.quantity += change;
+
+            if (item.quantity <= 0) {
+                removeFromCart(productId);
+                return;
+            }
+
+            updateCartDisplay();
+            updateTotals();
+        }
+
+        function removeFromCart(productId) {
+            cart = cart.filter(item => item.id != productId);
+            updateCartDisplay();
+            updateTotals();
+            showToast('Item removed', 'info');
+        }
+
+        // ===== TOTALS — rounded, capped, always accurate =====
+        function updateTotals() {
+            const discountEl = document.getElementById('discount');
+            const itemCountEl = document.getElementById('itemCount');
+            const subtotal = round2(cart.reduce((sum, item) => sum + (item.finalPrice * item.quantity), 0));
+            let discountInput = discountEl ? parseFloat(discountEl.value) || 0 : 0;
+            if (discountInput < 0) discountInput = 0;
+            if (discountType === 'percent' && discountInput > 100) discountInput = 100;
+
+            let discountAmount = 0;
+            if (discountType === 'percent') {
+                discountAmount = subtotal * (discountInput / 100);
+            } else {
+                discountAmount = Math.min(discountInput, subtotal);
+            }
+            discountAmount = round2(discountAmount);
+
+            const total = round2(Math.max(0, subtotal - discountAmount));
+            const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+            const subtotalEl = document.getElementById('subtotal');
+            const discountAmountEl = document.getElementById('discountAmount');
+            const totalEl = document.getElementById('total');
+            const itemCountPillEl = document.getElementById('itemCountPill');
+
+            if (itemCountEl) itemCountEl.textContent = totalItems;
+            if (itemCountPillEl) itemCountPillEl.textContent = `${totalItems} item${totalItems === 1 ? '' : 's'}`;
+            if (subtotalEl) subtotalEl.textContent = fmt(subtotal);
+            if (discountAmountEl) discountAmountEl.textContent = `-${fmt(discountAmount)}`;
+            if (totalEl) totalEl.textContent = fmt(total);
+        }
+
+        function clearCart() {
+            if (cart.length === 0) {
+                showToast('Cart is already empty', 'info');
+                return;
+            }
+
+            if (confirm('Clear cart?')) {
+                cart = [];
+                const discountEl = document.getElementById('discount');
+                if (discountEl) discountEl.value = '0';
+                updateCartDisplay();
+                updateTotals();
+                showToast('Cart cleared', 'success');
+            }
+        }
+
+        // =========================================================
+        // PAYMENT — Cash keeps the progress-bar simulation;
+        // UPI opens a QR modal and waits for "Payment Done".
+        // =========================================================
+        function processPayment() {
+            if (cart.length === 0) {
+                showToast('Cart is empty!', 'error');
+                return;
+            }
+
+            const customerName = document.getElementById('customerName').value.trim() || 'Walk-in Customer';
+            const customerMobile = document.getElementById('customerMobile').value.trim() || 'N/A';
+
+            // Snapshot cart/discount so the modal flow is unaffected by further cart edits
+            const discountEl = document.getElementById('discount');
+            tempCart = [...cart];
+            tempSubtotal = round2(cart.reduce((sum, item) => sum + (item.finalPrice * item.quantity), 0));
+            let discountInput = discountEl ? parseFloat(discountEl.value) || 0 : 0;
+            if (discountInput < 0) discountInput = 0;
+            if (discountType === 'percent' && discountInput > 100) discountInput = 100;
+            tempDiscountAmount = round2(discountType === 'percent' ? tempSubtotal * (discountInput / 100) : Math.min(discountInput, tempSubtotal));
+            tempDiscountType = discountType;
+            tempCustomerName = customerName;
+            tempCustomerMobile = customerMobile;
+
+            if (currentPaymentMethod === 'upi') {
+                openUpiModal();
+            } else {
+                runCashPaymentFlow();
+            }
+        }
+
+        function runCashPaymentFlow() {
+            const paymentModal = document.getElementById('paymentModal');
+            paymentModal.classList.add('show');
+
+            let progress = 0;
+            const progressBar = document.getElementById('progressBar');
+            const interval = setInterval(() => {
+                progress += 20;
+                if (progressBar) progressBar.style.width = Math.min(progress, 100) + '%';
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        paymentModal.classList.remove('show');
+                        completePayment();
+                    }, 500);
+                }
+            }, 200);
+        }
+
+        function openUpiModal() {
+            const total = Math.max(0, round2(tempSubtotal - tempDiscountAmount));
+            const orderRef = 'ORD' + Date.now().toString().slice(-6);
+            const upiLink = `upi://pay?pa=${encodeURIComponent(CONFIG.UPI_ID)}&pn=${encodeURIComponent(CONFIG.MERCHANT_NAME)}&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent('Order ' + orderRef)}`;
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(upiLink)}`;
+
+            document.getElementById('upiQrImg').src = qrUrl;
+            document.getElementById('upiAmount').textContent = total.toFixed(2);
+            document.getElementById('upiIdText').textContent = `Paying to ${CONFIG.UPI_ID}`;
+            document.getElementById('upiModal').classList.add('show');
+        }
+
+        function completePayment() {
+            document.getElementById('upiModal').classList.remove('show');
+            document.getElementById('paymentModal').classList.remove('show');
+
+            updateStockAfterSale(tempCart);
+            showReceipt();
+            clearCart();
+        }
+
+        // =========================================================
+        // STOCK UPDATE — decrement locally + best-effort push to the
+        // sheet, plus low/out-of-stock notifications.
+        // FIX: stock is now always decremented against the override
+        // map (single source of truth), the same product object
+        // referenced by bakeryProducts is updated, and every render
+        // path (grid, category chips, stock panel, cache) refreshes
+        // synchronously right after the sale — so what's on screen
+        // always matches what was just sold, on any device size.
+        // =========================================================
+        function updateStockAfterSale(soldItems) {
+            soldItems.forEach(item => {
+                const product = bakeryProducts.find(p => p.id == item.id);
+                if (!product) return;
+
+                const currentStock = stockOverrides[product.sku] !== undefined
+                    ? parseInt(stockOverrides[product.sku])
+                    : (product.stock ?? CONFIG.DEFAULT_STOCK);
+                const newStock = Math.max(0, currentStock - item.quantity);
+                product.stock = newStock;
+                stockOverrides[product.sku] = newStock;
+
+                if (newStock === 0) {
+                    addNotification('out-of-stock', `${product.name} is now OUT OF STOCK.`);
+                } else if (newStock <= CONFIG.LOW_STOCK_THRESHOLD) {
+                    addNotification('low-stock', `${product.name} is running low — only ${newStock} left.`);
+                }
+            });
+
+            saveStockOverrides();
+            saveToCache(bakeryProducts); // keep the product cache in sync with new stock levels
+            filterProducts(); // re-render grid so badges/highlights refresh immediately
+            renderStockStatus(); // keep the notification panel's Stock Status tab live
+
+            // Best-effort push to Google Sheets. Requires the Apps Script behind
+            // GOOGLE_SHEETS_URL to accept a POST like:
+            //   { action: 'updateStock', updates: [{ sku, stock }, ...] }
+            // and write the new stock value into a "stock" column matched by SKU.
+            // If your script doesn't support this yet, this call is silently ignored
+            // (stock still stays correct locally, in this browser).
+            try {
+                const formData = new FormData();
+                formData.append('data', JSON.stringify({
+                    action: 'updateStock',
+                    updates: soldItems.map(i => ({ sku: i.sku, stock: stockOverrides[i.sku] }))
+                }));
+                fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', body: formData }).catch(() => {});
+            } catch (e) {
+                console.warn('Stock sync to sheet skipped:', e);
+            }
+        }
+
+        // ===== RECEIPT =====
+        function showReceipt() {
+            const receiptContent = document.getElementById('receiptContent');
+            const receiptModal = document.getElementById('receiptModal');
+            const printArea = document.getElementById('printArea');
+
+            const now = new Date();
+            const receiptNumber = 'R' + Date.now().toString().slice(-6);
+            const orderId = 'ORD' + Date.now().toString().slice(-6);
+            const tableNumber = document.getElementById('tableNumber').value.trim() || 'N/A';
+            const total = Math.max(0, round2(tempSubtotal - tempDiscountAmount));
+
+            // stash for handleSubmit()
+            receiptModal.dataset.orderId = orderId;
+            receiptModal.dataset.receiptNumber = receiptNumber;
+            receiptModal.dataset.tableNumber = tableNumber;
+            receiptModal.dataset.paymentMethod = currentPaymentMethod;
+
+            const receiptHTML = `
+                <div class="text-center border-b pb-2 mb-2">
+                    <h3 class="font-bold text-lg">ServeSouth</h3>
+                    <p class="text-xs">South Indian Tiffin Counter</p>
+                    <p class="text-xs">Contact: 9537999898</p>
+                </div>
+                <div class="mb-2 text-xs">
+                    <p><strong>Order ID:</strong> ${orderId}</p>
+                    <p><strong>Receipt:</strong> ${receiptNumber}</p>
+                    <p><strong>Date:</strong> ${now.toLocaleDateString()}</p>
+                    <p><strong>Time:</strong> ${now.toLocaleTimeString()}</p>
+                    ${tempCustomerName !== 'Walk-in Customer' ? `<p><strong>Customer:</strong> ${tempCustomerName}</p>` : ''}
+                    ${tempCustomerMobile !== 'N/A' ? `<p><strong>Mobile:</strong> ${tempCustomerMobile}</p>` : ''}
+                </div>
+                <div class="flex justify-between items-center border border-dashed py-1.5 px-2 mb-2 text-xs font-semibold">
+                    <span>PAID VIA ${currentPaymentMethod.toUpperCase()}</span>
+                    <span>STATUS: PAID</span>
+                </div>
+                <div class="border-t pt-1 mb-2 text-xs">
+                    ${tempCart.map(item => `
+                        <div class="flex justify-between py-0.5">
+                            <span>${item.name.substring(0, 20)} x${item.quantity}</span>
+                            <span>${fmt(item.finalPrice * item.quantity)}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="border-t pt-1 text-xs">
+                    <div class="flex justify-between"><span>Subtotal:</span><span>${fmt(tempSubtotal)}</span></div>
+                    <div class="flex justify-between"><span>Discount:</span><span>-${fmt(tempDiscountAmount)}</span></div>
+                    <div class="flex justify-between font-bold border-t pt-1"><span>Total:</span><span>${fmt(total)}</span></div>
+                </div>
+                <div class="text-center mt-2 pt-2 border-t text-xs">
+                    <p>Thank you!</p>
+                    <p>Visit Again! 😊</p>
+                </div>
+            `;
+
+            if (receiptContent) receiptContent.innerHTML = receiptHTML;
+            if (printArea) printArea.innerHTML = receiptHTML;
+            receiptModal.classList.add('show');
+        }
+
+        // =========================================================
+        // SAVE PAYMENT MODE + STATUS TO THE SHEET
+        // =========================================================
+        async function handleSubmit() {
+            const submitLoader = document.getElementById('submitLoader');
+            const submitReceiptBtn = document.getElementById('submitReceiptBtn');
+            const receiptModal = document.getElementById('receiptModal');
+
+            submitLoader.classList.add('show');
+            submitReceiptBtn.disabled = true;
+
+            const now = new Date();
+            const receiptNumber = receiptModal.dataset.receiptNumber || ('R' + Date.now().toString().slice(-6));
+            const orderId = receiptModal.dataset.orderId || ('ORD' + Date.now().toString().slice(-6));
+            const tableNumber = receiptModal.dataset.tableNumber || 'N/A';
+            const paidVia = receiptModal.dataset.paymentMethod || currentPaymentMethod;
+            const total = Math.max(0, round2(tempSubtotal - tempDiscountAmount));
+
+            const payload = {
+                orderId,
+                customerName: tempCustomerName,
+                customerMobile: tempCustomerMobile,
+                orderItems: tempCart.map(item => ({
+                    itemName: item.name,
+                    sku: item.sku,
+                    quantity: item.quantity,
+                    price: item.finalPrice
+                })),
+                paymentMode: paidVia.toUpperCase(),   // CASH or UPI — the column this writes to in the sheet
+                paymentStatus: 'PAID',                // saved alongside paymentMode
+                totalAmount: total,
+                date: now.toISOString().split('T')[0],
+                time: now.toLocaleTimeString(),
+                receiptNumber,
+                tableNumber: tableNumber,
+                discountAmount: tempDiscountAmount,
+                discountType: tempDiscountType
+            };
+
+            try {
+                const formData = new FormData();
+                formData.append('data', JSON.stringify(payload));
+
+                await fetch(ORDER_SUBMISSION_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    body: formData
+                });
+
+                showToast('Order submitted!', 'success');
+                addNotification('order', `Order ${orderId} completed — ${fmt(total)} via ${paidVia.toUpperCase()}.`);
+                setTimeout(() => {
+                    document.getElementById('receiptModal').classList.remove('show');
+                }, 1500);
+            } catch (error) {
+                console.error('Submission error:', error);
+                showToast('Order saved locally', 'warning');
+                addNotification('order', `Order ${orderId} saved locally (sheet sync failed).`);
+                setTimeout(() => {
+                    document.getElementById('receiptModal').classList.remove('show');
+                }, 1500);
+            } finally {
+                submitLoader.classList.remove('show');
+                submitReceiptBtn.disabled = false;
+            }
+        }
+
+        // ===== FILTER (search text + active category) =====
+        function filterProducts() {
+            const productSearch = document.getElementById('productSearch');
+            const searchTerm = productSearch ? productSearch.value.toLowerCase() : '';
+            let filtered = bakeryProducts;
+
+            if (activeCategory && activeCategory !== 'ALL') {
+                filtered = filtered.filter(p => (p.category || 'OTHER').toUpperCase() === activeCategory);
+            }
+
+            if (searchTerm) {
+                filtered = filtered.filter(p =>
+                    p.name.toLowerCase().includes(searchTerm) ||
+                    p.sku.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            displayProducts(filtered);
+        }
+
+        // =========================================================
+        // VIEW SHEET BUTTON
+        // =========================================================
+        function openSheetView(which) {
+            document.getElementById('sheetMenuPanel').classList.remove('show');
+
+            if (which === 'products') {
+                if (CONFIG.PRODUCT_SHEET_URL) { window.open(CONFIG.PRODUCT_SHEET_URL, '_blank'); return; }
+                // Fallback: show the last-loaded product data in a table modal
+                document.getElementById('sheetDataTitle').textContent = 'Product Sheet Data';
+                document.getElementById('sheetDataHead').innerHTML = `
+                    <th class="p-2">ID</th><th class="p-2">Name</th><th class="p-2">Price</th>
+                    <th class="p-2">Category</th><th class="p-2">SKU</th><th class="p-2">Stock</th><th class="p-2">Discount</th>`;
+                document.getElementById('sheetDataBody').innerHTML = bakeryProducts.map(p => `
+                    <tr class="border-t">
+                        <td class="p-2">${p.id}</td>
+                        <td class="p-2">${p.name}</td>
+                        <td class="p-2">${fmt(p.price)}</td>
+                        <td class="p-2">${p.category}</td>
+                        <td class="p-2">${p.sku}</td>
+                        <td class="p-2">${p.stock ?? '—'}</td>
+                        <td class="p-2">${p.discount ? p.discount + '%' : '—'}</td>
+                    </tr>
+                `).join('');
+                document.getElementById('sheetDataModal').classList.add('show');
+                showToast('Set CONFIG.PRODUCT_SHEET_URL to open your real sheet in a new tab', 'info');
+                return;
+            }
+
+            // Orders & payments sheet (customer name, items, amount, payment mode + status)
+            if (CONFIG.ORDERS_SHEET_URL) { window.open(CONFIG.ORDERS_SHEET_URL, '_blank'); return; }
+            document.getElementById('sheetDataTitle').textContent = 'Orders & Payments Sheet';
+            document.getElementById('sheetDataHead').innerHTML = `<th class="p-2">—</th>`;
+            document.getElementById('sheetDataBody').innerHTML = `
+                <tr><td class="p-4 text-gray-500">
+                    Set <code>CONFIG.ORDERS_SHEET_URL</code> to the share link of the sheet your
+                    <code>ORDER_SUBMISSION_URL</code> Apps Script writes to (order ID, customer, items,
+                    amount, payment mode, payment status). This preview can't be built here because
+                    order rows live only in that sheet, not in this browser.
+                </td></tr>`;
+            document.getElementById('sheetDataModal').classList.add('show');
+            showToast('Set CONFIG.ORDERS_SHEET_URL to open your real sheet in a new tab', 'info');
+        }
+
+        // ===== EVENT LISTENERS =====
+        function setupEventListeners() {
+            const productSearch = document.getElementById('productSearch');
+            if (productSearch) {
+                productSearch.addEventListener('input', filterProducts);
+            }
+
+            document.querySelectorAll('.payment-method').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const target = e.currentTarget;
+                    document.querySelectorAll('.payment-method').forEach(b => {
+                        b.classList.remove('active', 'bg-primary', 'text-white');
+                        b.classList.add('bg-gray-200');
+                    });
+                    target.classList.add('active', 'bg-primary', 'text-white');
+                    target.classList.remove('bg-gray-200');
+                    currentPaymentMethod = target.dataset.method;
+                });
+            });
+
+            const discountEl = document.getElementById('discount');
+            if (discountEl) {
+                discountEl.addEventListener('input', updateTotals);
+            }
+
+            const discountTypeEl = document.getElementById('discountType');
+            if (discountTypeEl) {
+                discountTypeEl.addEventListener('change', () => {
+                    discountType = discountTypeEl.value;
+                    updateTotals();
+                });
+            }
+
+            const clearCartBtn = document.getElementById('clearCart');
+            if (clearCartBtn) clearCartBtn.addEventListener('click', clearCart);
+
+            const processPaymentBtn = document.getElementById('processPayment');
+            if (processPaymentBtn) processPaymentBtn.addEventListener('click', processPayment);
+
+            const closeReceiptBtn = document.getElementById('closeReceipt');
+            if (closeReceiptBtn) closeReceiptBtn.addEventListener('click', () => {
+                document.getElementById('receiptModal').classList.remove('show');
+            });
+
+            const submitReceiptBtn = document.getElementById('submitReceiptBtn');
+            if (submitReceiptBtn) submitReceiptBtn.addEventListener('click', handleSubmit);
+
+            const printReceiptBtnModal = document.getElementById('printReceiptBtn');
+            if (printReceiptBtnModal) printReceiptBtnModal.addEventListener('click', () => window.print());
+
+            const refreshProductsBtn = document.getElementById('refreshProducts');
+            if (refreshProductsBtn) {
+                refreshProductsBtn.addEventListener('click', () => {
+                    refreshProductsBtn.innerHTML = '<i class="fas fa-sync-alt fa-spin mr-1"></i>Refreshing...';
+                    refreshProductsBtn.disabled = true;
+                    localStorage.removeItem(CACHE_KEY);
+                    localStorage.removeItem(CACHE_TIME_KEY);
+                    loadProductsFromSheets().then(() => {
+                        refreshProductsBtn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i>Refresh Data';
+                        refreshProductsBtn.disabled = false;
+                    });
+                });
+            }
+
+            // Toggle customer details
+            const toggleCustomerBtn = document.getElementById('toggleCustomerDetails');
+            const customerDetails = document.getElementById('customerDetails');
+
+            if (toggleCustomerBtn && customerDetails) {
+                toggleCustomerBtn.addEventListener('click', () => {
+                    customerDetails.classList.toggle('hidden');
+                    const icon = toggleCustomerBtn.querySelector('.fa-chevron-down');
+                    if (icon) {
+                        icon.classList.toggle('fa-chevron-down');
+                        icon.classList.toggle('fa-chevron-up');
+                    }
+                });
+            }
+
+            // UPI modal buttons
+            document.getElementById('upiCancelBtn').addEventListener('click', () => {
+                document.getElementById('upiModal').classList.remove('show');
+            });
+            document.getElementById('upiDoneBtn').addEventListener('click', completePayment);
+
+            // Topbar: notification bell dropdown
+            const notifBellBtn = document.getElementById('notifBellBtn');
+            const notifPanel = document.getElementById('notifPanel');
+            notifBellBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.getElementById('profilePanel').classList.remove('show');
+                notifPanel.classList.toggle('show');
+                if (notifPanel.classList.contains('show')) {
+                    markAllNotificationsRead();
+                    renderStockStatus();
+                }
+            });
+            document.getElementById('clearNotifsBtn').addEventListener('click', () => {
+                notifications = [];
+                saveNotifications();
+                renderNotifications();
+            });
+
+            // Alerts / Stock Status tab switching
+            const tabAlertsBtn = document.getElementById('tabAlertsBtn');
+            const tabStockBtn = document.getElementById('tabStockBtn');
+            const notifListEl = document.getElementById('notifList');
+            const stockListEl = document.getElementById('stockList');
+            tabAlertsBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                tabAlertsBtn.classList.add('active');
+                tabStockBtn.classList.remove('active');
+                notifListEl.classList.remove('hidden');
+                stockListEl.classList.add('hidden');
+            });
+            tabStockBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                tabStockBtn.classList.add('active');
+                tabAlertsBtn.classList.remove('active');
+                stockListEl.classList.remove('hidden');
+                notifListEl.classList.add('hidden');
+                renderStockStatus();
+            });
+
+            // Topbar: profile dropdown
+            const profileBtn = document.getElementById('profileBtn');
+            const profilePanel = document.getElementById('profilePanel');
+            profileBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                notifPanel.classList.remove('show');
+                profilePanel.classList.toggle('show');
+            });
+
+            document.addEventListener('click', () => {
+                notifPanel.classList.remove('show');
+                profilePanel.classList.remove('show');
+            });
+
+            // Topbar: View Sheets dropdown (Products / Orders & Payments)
+            const sheetMenuPanel = document.getElementById('sheetMenuPanel');
+            document.getElementById('viewSheetBtn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                notifPanel.classList.remove('show');
+                profilePanel.classList.remove('show');
+                sheetMenuPanel.classList.toggle('show');
+            });
+            document.addEventListener('click', () => sheetMenuPanel.classList.remove('show'));
+            document.getElementById('closeSheetData').addEventListener('click', () => {
+                document.getElementById('sheetDataModal').classList.remove('show');
+            });
+        }
+
+        // ===== INIT =====
+        function initializeApp() {
+            loadProductsFromSheets();
+            setupEventListeners();
+            updateCartDisplay();
+            updateTotals();
+            renderNotifications();
+            renderStockStatus();
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        // Debug helper
+        window.debugPOS = {
+            clearCache: () => {
+                localStorage.removeItem(CACHE_KEY);
+                localStorage.removeItem(CACHE_TIME_KEY);
+                console.log('Cache cleared');
+            },
+            clearStock: () => {
+                localStorage.removeItem(STOCK_KEY);
+                console.log('Stock overrides cleared');
+            },
+            reload: () => loadProductsFromSheets(),
+            showCart: () => console.log(cart),
+            showProducts: () => console.log(bakeryProducts),
+            showNotifications: () => console.log(notifications)
+        };
+    </script>
+</body>
+</html>

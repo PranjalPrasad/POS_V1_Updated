@@ -45,9 +45,10 @@
             transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
             border: 1px solid #f1e4e8;
             box-shadow: 0 2px 8px rgba(139,38,53,0.05);
+            cursor: pointer;
         }
         .product-card:hover { transform: translateY(-4px); box-shadow: 0 14px 28px rgba(139,38,53,0.14); border-color: var(--primary, #8B2635); }
-        .product-card.out-of-stock { opacity: 0.55; filter: grayscale(0.5); }
+        .product-card.out-of-stock { opacity: 0.55; filter: grayscale(0.5); cursor: not-allowed; }
         .product-card.low-stock { border-color: #f59e0b; }
         .product-card .card-media {
             background: linear-gradient(160deg, #fdf1f4 0%, #fbe6ec 100%);
@@ -87,8 +88,10 @@
             width: 28px; height: 28px; border-radius: 9999px; display: flex; align-items: center;
             justify-content: center; background: var(--dark, #faf0e6); color: var(--primary, #8B2635);
             font-size: 12px;
+            overflow: hidden;
         }
-        .category-chip span.cat-label { font-size: 9.5px; font-weight: 600; color: #6b7280; white-space: nowrap; }
+        .category-chip .cat-icon img { width: 100%; height: 100%; object-fit: cover; border-radius: 9999px; }
+        .category-chip span.cat-label { font-size: 9.5px; font-weight: 700; color: #6b7280; white-space: nowrap; }
         .category-chip:hover { border-color: var(--primary, #8B2635); transform: translateY(-2px); }
         .category-chip.active { background: var(--primary, #8B2635); border-color: var(--primary, #8B2635); }
         .category-chip.active .cat-icon { background: rgba(255,255,255,0.2); color: #fff; }
@@ -211,16 +214,16 @@
 <body class="bg-gray-100 overflow-x-hidden min-h-screen flex flex-col">
 
     <!-- =========================================================
-         TOPBAR — Kunash logo (left, enlarged, circular + wordmark),
+         TOPBAR — logo (left, enlarged, circular + wordmark),
          View Sheet + Notification bell + Profile/Logout dropdown
          (right). Fully responsive.
          ========================================================= -->
     <nav class="bg-white shadow-sm border-b px-3 sm:px-4 md:px-6 py-[7px] sticky top-0 z-30">
         <div class="flex items-center justify-between gap-2">
-            <!-- Left: Kunash circular logo + wordmark -->
+            <!-- Left: circular logo + wordmark -->
             <div class="flex items-center gap-2 sm:gap-3 min-w-0">
                 <div class="brand-mark w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11">
-                    <img src="/kunash_logo.png" alt="Kunash Media Solutions">
+                    <img src="/kunash_logo.png" alt="CAFE 65">
                 </div>
                 <div class="hidden sm:block leading-tight min-w-0">
                     <p class="brand-word text-lg truncate">Kunash Media<span class="brand-sup text-[10px] ml-1">POS</span></p>
@@ -308,16 +311,16 @@
                         </button>
                     </div>
 
-                    <!-- Category chips row (icon + label), with "All", horizontally scrollable on small screens -->
-                    <div id="categoryRow" class="cat-scroll flex items-center gap-2 overflow-x-auto pb-3 mb-3 border-b border-dashed"></div>
+                    <!-- Category chips row (icon + label), with "All". Scrolls horizontally
+                         instead of wrapping onto new lines once it runs out of row space. -->
+                    <div id="categoryRow" class="flex flex-nowrap items-center gap-2 pb-3 mb-3 border-b border-dashed overflow-x-auto cat-scroll"></div>
 
                     <div id="loadingProducts" class="text-center py-8" style="display:none;">
                         <div class="loader show mx-auto"></div>
                         <p class="text-gray-600 mt-4">Loading products...</p>
                     </div>
 
-                    <div id="productsGrid" class="thin-scroll grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 h-[520px] sm:h-[600px] overflow-y-auto pr-1"></div>
-                </div>
+                        <div id="productsGrid" class="thin-scroll grid content-start items-start grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 h-[520px] sm:h-[600px] overflow-y-auto pr-1"></div>                </div>
 
                 <!-- Cart Panel — styled as "My Order", scrolls within itself -->
                 <div id="cartPanel" class="thin-scroll bg-white rounded-2xl shadow-sm p-4 sm:p-6">
@@ -508,24 +511,26 @@
         // =========================================================
         // CONFIG — fill these in for your deployment
         // =========================================================
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJf02XDJ3Fd0sXNZgBNj4O5N-Pfyhpu8IIhBGrq_yDUT8Fbu767-uV0NKw/exec';        const ORDER_SUBMISSION_URL = 'https://script.google.com/macros/s/AKfycbyul6UkH5uehnc-hjATTk8Hg_T6c6Xo75bUKYczonF8Ie-yNooeH5BBlfWJBD4v9SBSlw/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz1gzSgVN-WXGGmHDIKqZdDNiVqXIhlpm9iINKntOpXi_ql8WtwwTg0UJVlZVZ3qv8A/exec';        
+const ORDER_SUBMISSION_URL = 'https://script.google.com/macros/s/AKfycbyx57VwQJOHsMAHlh9NbyASSsqhqAVXFtE-x1NjUymYfe7fWCHC0IErB22aulGVIMJcgQ/exec';
 
         const CONFIG = {
             // Put your Google Sheets' normal share/edit URLs here (not the Apps Script exec URLs).
             // e.g. 'https://docs.google.com/spreadsheets/d/XXXXXXXXXXXXXXXXXXXX/edit'
-            PRODUCT_SHEET_URL: '',
-            ORDERS_SHEET_URL: '',
+            PRODUCT_SHEET_URL: 'https://docs.google.com/spreadsheets/d/1zI0sUeG0GLRW2eR7Dasf8edJ9Rk2KDsYOhBA-bbbCj8/edit?usp=sharing',
+            ORDERS_SHEET_URL: 'https://docs.google.com/spreadsheets/d/1xdepfxkHoti0HYdvi_REXziLUtFeyNtwIPsWjjDaZN0/edit?usp=sharing',
 
             // Your real UPI ID and display name (used to build the QR payment link)
             UPI_ID: 'yourstore@upi',
-            MERCHANT_NAME: 'Kunashmedia',
+            MERCHANT_NAME: 'CAFE 65',
 
             // Stock thresholds
             LOW_STOCK_THRESHOLD: 5,
             DEFAULT_STOCK: 50
         };
 
-        // Icons used for the category chip row (falls back to fa-utensils for unknown categories)
+        // Icons used for the category chip row (falls back to fa-utensils for unknown categories).
+        // These are now only used as a fallback if a category has no product image yet.
         const CATEGORY_ICONS = {
             'ALL': 'fa-border-all',
             'BURGER': 'fa-burger',
@@ -544,6 +549,17 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
             'BEVERAGES': 'fa-mug-saucer',
             'DESSERT': 'fa-ice-cream',
             'TIFFIN': 'fa-bowl-rice',
+            // ---- CAFE 65 menu categories ----
+            'COFFEE': 'fa-mug-hot',
+            'ICED COFFEE': 'fa-mug-saucer',
+            'TOAST & BREADS': 'fa-bread-slice',
+            'TEA & MASKA': 'fa-mug-hot',
+            'SMALL BITES': 'fa-bowl-food',
+            'MAGGI': 'fa-bowl-food',
+            'PASTA': 'fa-bowl-rice',
+            'SANDWICH': 'fa-bacon',
+            'FRIES': 'fa-french-fries',
+            'MILKSHAKES': 'fa-blender',
             'OTHER': 'fa-utensils'
         };
 
@@ -885,7 +901,9 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
         }
 
         // =========================================================
-        // CATEGORY CHIPS — "All" + one chip per distinct category
+        // CATEGORY CHIPS — "All" + one chip per distinct category.
+        // Each chip's icon shows an actual product image from that
+        // category (falls back to a FontAwesome icon if none found).
         // =========================================================
         function renderCategories() {
             const row = document.getElementById('categoryRow');
@@ -894,12 +912,24 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
             const cats = ['ALL', ...new Set(bakeryProducts.map(p => (p.category || 'OTHER').toUpperCase()))];
 
             row.innerHTML = cats.map(cat => {
-                const icon = CATEGORY_ICONS[cat] || 'fa-utensils';
                 const isActive = activeCategory === cat;
                 const label = cat === 'ALL' ? 'All' : cat.charAt(0) + cat.slice(1).toLowerCase();
+
+                // Pick a representative product image for this category.
+                const repProduct = cat === 'ALL'
+                    ? bakeryProducts[0]
+                    : bakeryProducts.find(p => (p.category || 'OTHER').toUpperCase() === cat);
+
+                let iconInner;
+                if (repProduct && repProduct.image) {
+                    iconInner = `<img src="${repProduct.image}" alt="${cat}" onerror="this.parentElement.innerHTML='<i class=&quot;fas ${CATEGORY_ICONS[cat] || 'fa-utensils'}&quot;></i>'">`;
+                } else {
+                    iconInner = `<i class="fas ${CATEGORY_ICONS[cat] || 'fa-utensils'}"></i>`;
+                }
+
                 return `
                     <button type="button" class="category-chip ${isActive ? 'active' : ''}" data-cat="${cat}" onclick="selectCategory('${cat.replace(/'/g, "\\'")}')">
-                        <span class="cat-icon"><i class="fas ${icon}"></i></span>
+                        <span class="cat-icon">${iconInner}</span>
                         <span class="cat-label">${label}</span>
                     </button>
                 `;
@@ -953,7 +983,7 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
                 const cardStateClass = isOut ? 'out-of-stock' : (isLow ? 'low-stock' : '');
 
                 return `
-                    <div class="product-card bg-white p-3 rounded-2xl relative ${cardStateClass}">
+                    <div class="product-card bg-white p-3 rounded-2xl relative ${cardStateClass}" ${isOut ? '' : `onclick="addToCart(${product.id})"`}>
                         ${badge}
                         <div class="card-media">
                             <img src="${product.image}" alt="${product.name}" onerror="this.src='https://placehold.co/200x200?text=No+Image'">
@@ -967,7 +997,7 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
                             <span class="bg-gray-100 text-gray-500 text-[10px] px-2 py-0.5 rounded-full">${product.category}</span>
                             <span class="stock-pill ${stockPillClass}">${stockLabel}</span>
                         </div>
-                        <button class="order-now-btn" ${isOut ? 'disabled' : ''} onclick="addToCart(${product.id})">
+                        <button class="order-now-btn" ${isOut ? 'disabled' : ''} onclick="event.stopPropagation(); addToCart(${product.id})">
                             ${isOut ? 'Unavailable' : '<i class="fas fa-plus mr-1"></i>Order Now'}
                         </button>
                     </div>
@@ -1247,19 +1277,18 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
             filterProducts(); // re-render grid so badges/highlights refresh immediately
             renderStockStatus(); // keep the notification panel's Stock Status tab live
 
-            // Best-effort push to Google Sheets. Requires the Apps Script behind
-            // GOOGLE_SHEETS_URL to accept a POST like:
-            //   { action: 'updateStock', updates: [{ sku, stock }, ...] }
-            // and write the new stock value into a "stock" column matched by SKU.
-            // If your script doesn't support this yet, this call is silently ignored
-            // (stock still stays correct locally, in this browser).
+            // Best-effort push to Google Sheets (fire-and-forget, text/plain body —
+            // see submitOrderToSheet() below for why this avoids CORS/preflight issues).
             try {
-                const formData = new FormData();
-                formData.append('data', JSON.stringify({
-                    action: 'updateStock',
-                    updates: soldItems.map(i => ({ sku: i.sku, stock: stockOverrides[i.sku] }))
-                }));
-                fetch(GOOGLE_SHEETS_URL, { method: 'POST', mode: 'no-cors', body: formData }).catch(() => {});
+                fetch(GOOGLE_SHEETS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'updateStock',
+                        updates: soldItems.map(i => ({ sku: i.sku, stock: stockOverrides[i.sku] }))
+                    })
+                }).catch(() => {});
             } catch (e) {
                 console.warn('Stock sync to sheet skipped:', e);
             }
@@ -1285,9 +1314,8 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
 
             const receiptHTML = `
                 <div class="text-center border-b pb-2 mb-2">
-                    <h3 class="font-bold text-lg">KunashMedia</h3>
-                    <p class="text-xs">South Indian Tiffin Counter</p>
-                    <p class="text-xs">Contact: 9537999898</p>
+                    <h3 class="font-bold text-lg">CAFE 65</h3>
+                    <p class="text-xs">Contact: +91 98765 43210</p>
                 </div>
                 <div class="mb-2 text-xs">
                     <p><strong>Order ID:</strong> ${orderId}</p>
@@ -1326,8 +1354,89 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
         }
 
         // =========================================================
-        // SAVE PAYMENT MODE + STATUS TO THE SHEET
+        // SAVE ORDER TO THE SHEET — JSONP (script-tag) instead of a
+        // blind no-cors fetch.
+        //
+        // The old version used fetch(..., {mode:'no-cors'}), which
+        // gives back an OPAQUE response object — response.success is
+        // always undefined, so the old success check could never
+        // actually detect a failed write. Orders could silently fail
+        // to reach the sheet while the POS still showed "Order
+        // submitted!".
+        //
+        // This calls the Apps Script's doGet(e) (see the updated
+        // Code.gs) the same way loadProductsFromSheets() already
+        // does for products — a <script> tag with a ?callback=...
+        // param — which sidesteps CORS entirely and returns a REAL,
+        // readable {success, error} object.
         // =========================================================
+        function submitOrderToSheet(payload) {
+            return new Promise((resolve) => {
+                const callbackName = 'orderSubmit_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+                const timeoutId = setTimeout(() => {
+                    cleanup();
+                    resolve({ success: false, error: 'Timed out waiting for the sheet' });
+                }, 15000);
+
+                function cleanup() {
+                    clearTimeout(timeoutId);
+                    if (window[callbackName]) delete window[callbackName];
+                    const script = document.getElementById(callbackName);
+                    if (script) script.remove();
+                }
+
+                window[callbackName] = function (response) {
+                    cleanup();
+                    resolve(response || { success: false, error: 'Empty response' });
+                };
+
+                const url = `${ORDER_SUBMISSION_URL}?callback=${callbackName}&data=${encodeURIComponent(JSON.stringify(payload))}`;
+                const script = document.createElement('script');
+                script.src = url;
+                script.id = callbackName;
+                script.onerror = () => {
+                    cleanup();
+                    resolve({ success: false, error: 'Network/script error reaching the sheet' });
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        // =========================================================
+        // PENDING ORDER QUEUE — a paid order is never lost even if
+        // the sheet call fails (bad wifi, wrong deployment, Google
+        // hiccup, etc). It's queued locally and retried automatically.
+        // =========================================================
+        const PENDING_ORDERS_KEY = 'posPendingOrders';
+
+        function getPendingOrders() {
+            return JSON.parse(localStorage.getItem(PENDING_ORDERS_KEY) || '[]');
+        }
+        function savePendingOrders(list) {
+            localStorage.setItem(PENDING_ORDERS_KEY, JSON.stringify(list));
+        }
+        function queuePendingOrder(payload) {
+            const list = getPendingOrders();
+            list.push(payload);
+            savePendingOrders(list);
+        }
+        function removePendingOrder(orderId) {
+            savePendingOrders(getPendingOrders().filter(o => o.orderId !== orderId));
+        }
+
+        async function syncPendingOrders() {
+            const pending = getPendingOrders();
+            if (pending.length === 0) return;
+
+            for (const payload of pending) {
+                const res = await submitOrderToSheet(payload);
+                if (res && res.success) {
+                    removePendingOrder(payload.orderId);
+                    addNotification('order', `Queued order ${payload.orderId} synced to the sheet.`);
+                }
+            }
+        }
+
         async function handleSubmit() {
             const submitLoader = document.getElementById('submitLoader');
             const submitReceiptBtn = document.getElementById('submitReceiptBtn');
@@ -1365,14 +1474,11 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
             };
 
             try {
-                const formData = new FormData();
-                formData.append('data', JSON.stringify(payload));
+                const response = await submitOrderToSheet(payload);
 
-                await fetch(ORDER_SUBMISSION_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: formData
-                });
+                if (!response || response.success !== true) {
+                    throw new Error((response && response.error) || 'Sheet did not confirm the order');
+                }
 
                 showToast('Order submitted!', 'success');
                 addNotification('order', `Order ${orderId} completed — ${fmt(total)} via ${paidVia.toUpperCase()}.`);
@@ -1381,11 +1487,14 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
                 }, 1500);
             } catch (error) {
                 console.error('Submission error:', error);
-                showToast('Order saved locally', 'warning');
-                addNotification('order', `Order ${orderId} saved locally (sheet sync failed).`);
+                // The sale already happened (stock was already decremented, receipt
+                // already printed) — never drop it. Queue it and keep retrying.
+                queuePendingOrder(payload);
+                showToast(`Saved locally — will retry sync (${error.message})`, 'warning');
+                addNotification('order', `Order ${orderId} queued locally — sheet sync failed: ${error.message}`);
                 setTimeout(() => {
                     document.getElementById('receiptModal').classList.remove('show');
-                }, 1500);
+                }, 2500);
             } finally {
                 submitLoader.classList.remove('show');
                 submitReceiptBtn.disabled = false;
@@ -1616,6 +1725,7 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
             updateTotals();
             renderNotifications();
             renderStockStatus();
+            syncPendingOrders(); // retry any orders that failed to save last time
         }
 
         document.addEventListener('DOMContentLoaded', initializeApp);
@@ -1634,7 +1744,9 @@ const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbz72JGTcktucJ
             reload: () => loadProductsFromSheets(),
             showCart: () => console.log(cart),
             showProducts: () => console.log(bakeryProducts),
-            showNotifications: () => console.log(notifications)
+            showNotifications: () => console.log(notifications),
+            showPendingOrders: () => console.log(getPendingOrders()),
+            syncPendingOrders: () => syncPendingOrders()
         };
     </script>
 </body>
